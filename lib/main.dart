@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'database.dart';
+import 'package:flutter_form_builder/flutter_form_builder.dart';
+import 'package:form_builder_validators/form_builder_validators.dart';
 
 void main() {
   runApp(const MyApp());
@@ -11,124 +12,69 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Book Database',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
+      home: Scaffold(
+        appBar: AppBar(title: const Text('Валідація номерного знака')),
+        body: const Padding(
+          padding: EdgeInsets.all(16.0),
+          child: LicensePlateForm(),
+        ),
       ),
-      home: const BookListScreen(),
     );
   }
 }
 
-class BookListScreen extends StatefulWidget {
-  const BookListScreen({super.key});
+class LicensePlateForm extends StatefulWidget {
+  const LicensePlateForm({super.key});
 
   @override
-  State<BookListScreen> createState() => _BookListScreenState();
+  State<LicensePlateForm> createState() => _LicensePlateFormState();
 }
 
-class _BookListScreenState extends State<BookListScreen> {
-  final dbHelper = DatabaseHelper.instance;
-  List<Map<String, dynamic>> books = [];
-  final TextEditingController titleController = TextEditingController();
-  final TextEditingController authorController = TextEditingController();
-  final TextEditingController searchController = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    _queryAll();
-  }
-
-  void _insert() async {
-    Map<String, dynamic> row = {
-      DatabaseHelper.columnTitle: titleController.text,
-      DatabaseHelper.columnAuthor: authorController.text,
-    };
-    final id = await dbHelper.insert(row);
-    debugPrint('inserted row id: $id');
-    _queryAll();
-    titleController.clear();
-    authorController.clear();
-  }
-
-  void _queryAll() async {
-    final allRows = await dbHelper.queryAllRows();
-    setState(() {
-      books = allRows;
-    });
-    debugPrint('query all rows:');
-    allRows.forEach((row) => debugPrint(row.toString()));
-  }
-
-  void _query(String title) async {
-    final rows = await dbHelper.queryRows(title);
-    setState(() {
-      books = rows;
-    });
-    debugPrint('query "$title":');
-    rows.forEach((row) => debugPrint(row.toString()));
-  }
+class _LicensePlateFormState extends State<LicensePlateForm> {
+  final _formKey = GlobalKey<FormBuilderState>();
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Book Database'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: <Widget>[
-            TextField(
-              controller: titleController,
-              decoration: const InputDecoration(labelText: 'Book Title'),
-            ),
-            TextField(
-              controller: authorController,
-              decoration: const InputDecoration(labelText: 'Author'),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _insert,
-              child: const Text('Add Book'),
-            ),
-            const SizedBox(height: 32),
-            TextField(
-              controller: searchController,
-              decoration: const InputDecoration(labelText: 'Search by Title'),
-              onChanged: (value) {
-                if (value.isNotEmpty) {
-                  _query(value);
-                } else {
-                  _queryAll();
+    return FormBuilder(
+      key: _formKey,
+      child: Column(
+        children: <Widget>[
+          FormBuilderTextField(
+            name: 'license_plate',
+            decoration: const InputDecoration(labelText: 'Номерний знак'),
+            validator: FormBuilderValidators.compose([
+              FormBuilderValidators.required(
+                  errorText: 'Введіть номерний знак'),
+              (value) {
+                if (value == null || value.isEmpty) return null;
+                if (!RegExp(
+                        r'^[А-ЯІЄҐ]{2}\d{4}[А-ЯІЄҐ]{2}$|^[А-ЯІЄҐ]{2}\d{3}[А-ЯІЄҐ]{2}$')
+                    .hasMatch(value.toUpperCase())) {
+                  return 'Невірний формат номерного знака';
                 }
+                return null;
               },
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: ListView.builder(
-                itemCount: books.length,
-                itemBuilder: (context, index) {
-                  return Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text('Title: ${books[index]['title']}',
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.bold)),
-                          Text('Author: ${books[index]['author']}'),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+            ]),
+            textCapitalization: TextCapitalization.characters,
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: () {
+              if (_formKey.currentState!.validate()) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Номерний знак валідний!')),
+                );
+                print(_formKey.currentState!.value);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text('Невірний формат номерного знака')),
+                );
+              }
+            },
+            child: const Text('Перевірити'),
+          ),
+        ],
       ),
     );
   }
